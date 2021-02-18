@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "dependencies": {
+    "esbuild": "^0.8.46",
+    "shift-ast": "^6.1.0",
+    "shift-codegen": "^7.0.3",
+    "shift-fuzzer": "^2.0.0",
+    "shift-parser": "^7.0.3"
+  }
+}
