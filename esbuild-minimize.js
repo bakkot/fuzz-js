@@ -12,13 +12,13 @@ let minfile = 'build/min.js';
 let outfile = path.resolve(__dirname, 'build/min-out.js');
 
 let known = [
-  'Cannot access "arguments" here',
+  // 'Cannot access "arguments" here',
   'has already been declared',
-  'Invalid assignment target',
-  'Unexpected "," after rest pattern',
-  'Unexpected "("',
-  'Unexpected "**"',
-  'Expected "}" but found "in"',
+  // 'Invalid assignment target',
+  // 'Unexpected "," after rest pattern',
+  // 'Unexpected "("',
+  // 'Unexpected "**"',
+  // 'Expected "}" but found "in"',
 ];
 
 let isStillGood = async tree => {

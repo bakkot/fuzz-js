@@ -14,13 +14,13 @@ let outfile = path.resolve(__dirname, 'build/out.js');
 
 
 let known = [
-  'Cannot access "arguments" here',
+  // 'Cannot access "arguments" here',
   'has already been declared',
-  'Invalid assignment target',
-  'Unexpected "," after rest pattern',
-  'Unexpected "("',
-  'Unexpected "**"',
-  'Expected "}" but found "in"',
+  // 'Invalid assignment target',
+  // 'Unexpected "," after rest pattern',
+  // 'Unexpected "("',
+  // 'Unexpected "**"',
+  // 'Expected "}" but found "in"',
 ];
 (async () => {
   for (let i = 0; i < 100000; ++i) {
