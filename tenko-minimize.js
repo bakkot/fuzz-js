@@ -4,7 +4,7 @@ let path = require('path');
 let src = fs.readFileSync('build/in.js', 'utf8');
 let { parseModule } = require('shift-parser');
 let codegen = require('shift-codegen').default;
-let esbuild = require('esbuild');
+let tenko = require('tenko');
 
 let minimize = require('./minimize.js');
 
@@ -12,25 +12,23 @@ let minfile = 'build/min.js';
 let outfile = path.resolve(__dirname, 'build/min-out.js');
 
 let known = [
-  // 'Cannot access "arguments" here',
-  'has already been declared',
-  // 'Invalid assignment target',
-  // 'Unexpected "," after rest pattern',
-  // 'Unexpected "("',
-  'Unexpected "**"',
-  // 'Expected "}" but found "in"',
+  'An async function expression is not allowed here',
+  'because was already bound as a catch clause pattern binding', // bug in shift-parser
+  'Not configured to parse `return` statement in global', // bug in minimizer
+  'but another binding already existed on the same level', // bug in shift-fuzzer
+  'Unable to ASI',
+  'Found a var binding that is duplicate of a lexical binding on the same or lower statement level', // bug in shift-fuzzer
+  'The left hand side of the arrow is not destructible',
+  'A valid bracket quantifier',
+  'The binding pattern is not destructible',
+  'Tried to destructure something that is not destructible',
+  'Encountered unescaped quantifier',
 ];
 
 let isStillGood = async tree => {
   let src = codegen(tree);
-  fs.writeFileSync(minfile, src, 'utf8');
   try {
-    await esbuild.build({
-      entryPoints: [minfile],
-      bundle: false,
-      outfile,
-      logLevel: 'silent',
-    });
+    tenko(src, { goalMode: tenko.GOAL_MODULE });
     return false;
   } catch (e) {
     if (known.some(m => e.message.includes(m))) {

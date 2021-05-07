@@ -57,10 +57,20 @@ function* shrink(node) {
           queue.push(path.concat(['body']));
           break;
         }
+        case 'ClassExpression': {
+          if (c.super !== null) {
+            yield replace(c.super);
+          }
+          if (c.name !== null) {
+            yield replace(new Shift.ClassExpression({ name: null, super: c.super, elements: c.elements }));
+          }
+          // fall through
+        }
         case 'ClassDeclaration': {
+          let ctor = Shift[c.type];
           for (let element of c.elements) {
             yield replace(
-              new Shift.FunctionDeclaration({
+              new (c.type === 'ClassExpression' ? Shift.FunctionExpression : Shift.FunctionDeclaration)({
                 name: c.name,
                 isGenerator: false,
                 isAsync: false,
@@ -70,16 +80,20 @@ function* shrink(node) {
             );
           }
           if (c.super != null) {
-            yield replace(new Shift.ClassDeclaration({ name: c.name, super: null, elements: c.elements }));
+            // TODO this is only legal if there is no super() in the constructor
+            yield replace(new ctor({ name: c.name, super: null, elements: c.elements }));
+            queue.push(path.concat(['super']));
           }
           queue.push(path.concat(['elements']));
           break;
         }
         case 'FunctionDeclaration': {
           // TODO this isn't legal; you have to know the declaration is not in an `export default`
+          // also need to check it does not contain `Return`
           for (let statement of c.body.statements) {
             yield replace(statement);
           }
+          queue.push(path.concat('params'));
           queue.push(path.concat('body'));
           break;
         }
@@ -88,8 +102,15 @@ function* shrink(node) {
           break;
         }
         case 'Getter': {
-          // todo shrink name
+          yield replace(new Shift.Method({ isAsync: false, isGenerator: false, name: c.name, params: new Shift.FormalParameters({ items: [], rest: null }), body: c.body }));
           queue.push(path.concat('name'));
+          queue.push(path.concat('body'));
+          break;
+        }
+        case 'Setter': {
+          yield replace(new Shift.Method({ isAsync: false, isGenerator: false, name: c.name, params: new Shift.FormalParameters({ items: [c.param], rest: null }), body: c.body }));
+          queue.push(path.concat('name'));
+          queue.push(path.concat('param'));
           queue.push(path.concat('body'));
           break;
         }
@@ -167,6 +188,9 @@ function* shrink(node) {
           yield replace(new Shift.BlockStatement({ block: c.catchClause.body }));
 
           queue.push(path.concat(['body']));
+          if (c.catchClause.binding != null) {
+            queue.push(path.concat(['catchClause', 'binding']));
+          }
           queue.push(path.concat(['catchClause', 'body']));
           break;
         }
@@ -185,6 +209,9 @@ function* shrink(node) {
             yield replace(new Shift.BlockStatement({ block: c.finalizer }));
 
             queue.push(path.concat(['body']));
+            if (c.catchClause.binding != null) {
+              queue.push(path.concat(['catchClause', 'binding']));
+            }
             queue.push(path.concat(['catchClause', 'body']));
             queue.push(path.concat(['finalizer']));
           }
@@ -204,12 +231,9 @@ function* shrink(node) {
         }
         case 'LabeledStatement': {
           yield replace(new Shift.EmptyStatement({}));
-          // It would be nice if we could get rid of the label, but preserving validity is hard
+          // TODO this isn't legal - we might invalidate a nested `break` - but whatever
+          yield replace(c.body);
           queue.push(path.concat(['body']));
-          break;
-        }
-        case 'FunctionDeclaration': {
-          queue.push(path.concat(['body', 'statements']));
           break;
         }
         case 'ForStatement': {
@@ -265,17 +289,22 @@ function* shrink(node) {
           yield replace(new Shift.EmptyStatement({}));
           yield replace(new Shift.ExpressionStatement({ expression: c.discriminant }));
           let cases = [...c.preDefaultCases, ...c.postDefaultCases];
-          yield replace(new SwitchStatement({ discriminant: c.discriminant, cases }));
+          yield replace(new Shift.SwitchStatement({ discriminant: c.discriminant, cases }));
           for (let _case of cases) {
             yield replace(new Shift.ExpressionStatement({ expression: _case.test }));
           }
           queue.push(path.concat(['discriminant']));
           queue.push(path.concat(['preDefaultCases']));
+          queue.push(path.concat(['defaultCase']));
           queue.push(path.concat(['postDefaultCases']));
           break;
         }
         case 'SwitchCase': {
           queue.push(path.concat(['test']));
+          queue.push(path.concat(['consequent']));
+          break;
+        }
+        case 'SwitchDefault': {
           queue.push(path.concat(['consequent']));
           break;
         }
@@ -313,7 +342,7 @@ function* shrink(node) {
         }
         case 'VariableDeclarator': {
           // TODO we need to know that this isn't a const declaration for this to be legal
-          if (c.init !== null) {
+          if (c.init !== null && c.binding.type !== 'ArrayBinding' && c.binding.type !== 'ObjectBinding') {
             yield replace(new Shift.VariableDeclarator({ binding: c.binding, init: null }));
           }
           queue.push(path.concat(['binding']));
@@ -340,6 +369,7 @@ function* shrink(node) {
             yield replace(new Shift.ArrayAssignmentTarget({ elements: c.elements, rest: null }));
             yield replace(new Shift.ArrayAssignmentTarget({ elements: c.elements.concat(c.rest), rest: null }));
           }
+          // TODO try replacing with each element
           queue.push(path.concat(['elements']));
           if (c.rest != null) {
             queue.push(path.concat(['rest']));
@@ -390,10 +420,56 @@ function* shrink(node) {
           }
           break;
         }
+        case 'ArrayBinding': {
+          // unfortunately we can't just replace it with `_` because that risks a redeclaration
+          for (let element of c.elements) {
+            if (element !== null) {
+              if (element.type === 'BindingWithDefault') {
+                yield replace(element.binding);
+              } else {
+                yield replace(element);
+              }
+            }
+          }
+          if (c.rest != null) {
+            yield replace(c.rest);
+            yield replace(new Shift.ArrayBinding({ elements: c.elements, rest: null }));
+            yield replace(new Shift.ArrayBinding({ elements: c.elements.concat(c.rest), rest: null }));
+          }
+          queue.push(path.concat(['elements']));
+          if (c.rest != null) {
+            queue.push(path.concat(['rest']));
+          }
+          break;
+        }
+        case 'ObjectBinding': {
+          // TODO attempt replacing with each property, when sensible to do so
+          if (c.rest != null) {
+            yield replace(c.rest);
+            yield replace(new Shift.ObjectBinding({ properties: c.properties, rest: null }));
+            yield replace(new Shift.ObjectBinding({ properties: c.properties.concat(c.rest), rest: null }));
+          }
+          queue.push(path.concat(['properties']));
+          if (c.rest != null) {
+            queue.push(path.concat(['rest']));
+          }
+          break;
+        }
         case 'BindingWithDefault': {
           yield replace(c.binding);
           queue.push(path.concat(['binding']));
           queue.push(path.concat(['init']));
+          break;
+        }
+        case 'BindingPropertyProperty': {
+          queue.push(path.concat(['name']));
+          queue.push(path.concat(['binding']));
+          break;
+        }
+        case 'BindingPropertyIdentifier': {
+          if (c.init !== null) {
+            queue.push(path.concat(['init']));
+          }
           break;
         }
         case 'ArrayExpression': {
@@ -415,8 +491,10 @@ function* shrink(node) {
           yield replace(new Shift.LiteralNullExpression({}));
           for (let element of c.properties) {
             // TODO handle other kinds: pull expressions out of computed property names, out spread properties, function expressions out of methods, etc
-            if (element != null && element.type === 'DataProperty') {
-              yield replace(element.expression);
+            if (element != null) {
+              if (element.type === 'DataProperty' || element.type === 'SpreadProperty') {
+                yield replace(element.expression);
+              }
             }
           }
           yield replace(new Shift.ArrayExpression({
@@ -434,6 +512,9 @@ function* shrink(node) {
           for (let child of exprChildren) {
             yield replace(child.expression);
           }
+          if (c.name !== null) {
+            yield replace(new Shift.FunctionExpression({ name: null, isGenerator: c.isGenerator, isAsync: c.isAsync, params: c.params, body: c.body }));
+          }
           queue.push(path.concat(['params']));
           queue.push(path.concat(['body']));
           break;
@@ -444,31 +525,11 @@ function* shrink(node) {
             yield replace(c.body);
           }
           // TODO figure out if async keyword is necessary and omit if not
+          if (c.isAsync && (c.body.type === 'LiteralNullExpression' || c.body.type === 'FunctionBody' && c.body.statements.length === 0)) {
+            yield replace(new Shift.ArrowExpression({ isAsync: false, params: c.params, body: c.body }))
+          }
           queue.push(path.concat(['params']));
           queue.push(path.concat(['body']));
-          break;
-        }
-        case 'ClassExpression': {
-          // TODO dedup this with classdeclaration
-          yield replace(new Shift.LiteralNullExpression({}));
-          for (let element of c.elements) {
-            yield replace(
-              // todo get async/generator right
-              new Shift.FunctionExpression({
-                name: c.name,
-                isGenerator: false,
-                isAsync: false,
-                params: new Shift.FormalParameters({ items: [], rest: null }),
-                body: element.method.body,
-              })
-            );
-          }
-          if (c.super != null) {
-            queue.push(path.concat(['super']));
-            // TODO figure out if super() is called in the constructor and, if not, get rid of the `extends` clause:
-            // yield replace(new Shift.ClassDeclaration({ super: null, elements: c.elements }));
-          }
-          queue.push(path.concat(['elements']));
           break;
         }
         case 'ConditionalExpression': {
@@ -488,7 +549,8 @@ function* shrink(node) {
               pattern: '(?:)',
               global: c.global,
               ignoreCase: c.ignoreCase,
-              multiline: c.multiline,
+              multiLine: c.multiLine,
+              dotAll: c.dotAll,
               sticky: c.sticky,
               unicode: c.unicode,
             }));
@@ -521,13 +583,15 @@ function* shrink(node) {
         case 'NewExpression':
         case 'CallExpression': {
           yield replace(new Shift.LiteralNullExpression({}));
-          if (c.callee.type !== 'Super')
-          yield replace(c.callee);
+          if (c.callee.type !== 'Super') {
+            yield replace(c.callee);
+          }
           for (let arg of c.arguments) {
             if (arg.type !== 'SpreadElement') {
               yield replace(arg);
             }
           }
+          queue.push(path.concat('callee'));
           queue.push(path.concat('arguments'));
           break;
         }
