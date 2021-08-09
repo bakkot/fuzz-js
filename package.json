@@ -6,6 +6,7 @@
     "shift-codegen": "^7.0.3",
     "shift-fuzzer": "^2.0.0",
     "shift-parser": "^7.0.3",
+    "shift-shrink": "^1.1.2",
     "tenko": "^2.0.1"
   }
 }

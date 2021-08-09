@@ -39,7 +39,7 @@ let isStillGood = async tree => {
 };
 
 (async () => {
-  let shrunk = await minimize(parseModule(src), isStillGood, console.log);
+  let shrunk = await minimize(parseModule(src), isStillGood, { log: console.log });
 
   console.log(shrunk);
 
