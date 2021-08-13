@@ -1,6 +1,7 @@
 {
   "private": true,
   "dependencies": {
+    "@swc/core": "^1.2.77",
     "esbuild": "^0.11.19",
     "shift-ast": "^6.1.0",
     "shift-codegen": "^7.0.3",
