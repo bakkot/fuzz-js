@@ -9,7 +9,7 @@ let codegen = require('shift-codegen').default;
 let { shrink } = require('shift-shrink');
 
 async function fuzz(parse, N, known = []) {
-  for (let i = 0; i < 100000; ++i) {
+  for (let i = 0; i < N; ++i) {
     let tree = fuzzModule();
     let src = codegen(tree);
 
