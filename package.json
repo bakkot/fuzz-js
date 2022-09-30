@@ -1,7 +1,8 @@
 {
   "private": true,
   "dependencies": {
-    "@swc/core": "^1.2.77",
+    "@babel/parser": "^7.15.8",
+    "@swc/core": "^1.2.102",
     "esbuild": "^0.11.19",
     "shift-ast": "^6.1.0",
     "shift-codegen": "^7.0.3",

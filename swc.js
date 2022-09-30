@@ -1,5 +1,7 @@
 'use strict';
 
+// https://github.com/swc-project/swc/issues/2038
+
 let { fuzz, minimize } = require('.');
 
 let fs = require('fs');
@@ -10,7 +12,6 @@ let parse = src => {
   parseSync(src, { isModule: true });
 };
 
-
 let known = [
   'Unterminated string constant',
   'Invalid string escape',
@@ -18,6 +19,7 @@ let known = [
   'Unexpected eof',
   'Expected )',
   'Unexpected token `?`',
+  'Unexpected token `]`',
   'Unexpected token `|`',
   'Unexpected token `^`',
   'Unexpected token `)`',
@@ -28,4 +30,4 @@ let known = [
   "'yield' cannot be used as a parameter within generator",
 ];
 
-fuzz(parse, 10000, known);
+fuzz(parse, 100000, known);

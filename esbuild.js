@@ -1,5 +1,8 @@
 'use strict';
 
+// https://github.com/evanw/esbuild/issues/835
+// https://github.com/evanw/esbuild/issues/857
+
 let fs = require('fs');
 let path = require('path');
 

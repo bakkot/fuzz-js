@@ -1,5 +1,7 @@
 'use strict';
 
+// https://github.com/pvdz/tenko/issues/20
+
 let fs = require('fs');
 let path = require('path');
 

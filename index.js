@@ -41,7 +41,14 @@ async function fuzz(parse, N, known = []) {
 
 async function minimize(src, parse, known = []) {
   let isStillGood = async tree => {
-    let src = codegen(tree);
+    let src;
+    try {
+      src = codegen(tree);
+    } catch (e) {
+      console.error('codegen failed', e);
+      fs.writeFileSync('_codegen-failed-tree.json', JSON.stringify(tree), 'utf8');
+      throw e;
+    }
     try {
       await parse(src);
       return false;
@@ -53,7 +60,7 @@ async function minimize(src, parse, known = []) {
       return true;
     }
   };
-  let tree = await shrink(parseModule(src), isStillGood, { log: console.log });
+  let tree = await shrink(parseModule(src), isStillGood, { log: console.log, onImproved: tree => fs.writeFileSync('_minimizer-best.json', JSON.stringify(tree, null, 2), 'utf8') });
   let res = codegen(tree);
 
   console.log(res);
