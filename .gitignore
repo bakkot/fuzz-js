@@ -1,3 +1,5 @@
 build/
 _minimizer-best.json
 __tmp.js
+**/target
+node_modules

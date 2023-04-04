@@ -26,7 +26,7 @@ async function fuzz(parse, N, known = []) {
     try {
       await parse(src);
     } catch (e) {
-      if (known.some(m => e.message.includes(m))) {
+      if (known.some(m => src.includes(m) || e.message.includes(m))) {
         continue;
       }
       console.log(e);
@@ -64,7 +64,6 @@ async function minimize(src, parse, known = []) {
   let res = codegen(tree);
 
   console.log(res);
-  console.log('j', JSON.stringify(res));
   parse(res)
 }
 
